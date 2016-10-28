@@ -56,6 +56,23 @@
 
 function rowPlot(X, Ys, varargin)
 
+if iscell(X)
+    for i = 1:length(X)
+        if size(X{i},2) ~= 1
+            X{i} = X{i}';
+            Ys{i} = Ys{i}';
+        end
+    end
+else
+    if size(X,2) ~= 1
+        X = X';
+        for i = 1:length(Ys)
+            Ys{i} = Ys{i}';
+        end
+    end
+end
+
+
 if mod(length(varargin),2) ~= 0
     error('Error in %s',mfilename('class'))
 end
@@ -88,6 +105,9 @@ xlabelFont = labelFont;
 ylabelFont = labelFont;
 
 figureName = '4X1';
+PROP_P = {};
+
+myPlot = @plot;
 % parser optional parameters
 for i = 1:2:length(varargin)
     switch lower(varargin{i})
@@ -97,6 +117,9 @@ for i = 1:2:length(varargin)
             H = varargin{i + 1};
         case {'figuremargin'}
             M = varargin{i + 1};
+            if isscalar(M)
+                M = ones(4,1) * M;
+            end
         case {'xlabelfontsize'}
             xlabelFont = varargin{i + 1};
         case {'ylabelfontsize'}
@@ -113,16 +136,23 @@ for i = 1:2:length(varargin)
             title_ = varargin{i + 1};
         case {'legend'}
             legend_ = varargin{i + 1};
-            
-        case {'properties_common'}
+        case {'commonproperties'}
             PROP_C = varargin{i + 1};
-        case {'properties_diff'}
+        case {'diffproperties'}
             PROP_D = varargin{i + 1};
-        case {'properties_legend'}
-            PROP_L = varargin{i + 1};
-            
-        case {'figureName'}
+        case {'figurename'}
             figureName = varargin{i + 1};
+        case {'plotproperties'}
+            PROP_P = varargin{i + 1};
+        case {'plottype'}
+            switch varargin{i + 1}
+                case {'plot'}
+                    myPlot = @plot;
+                case {'semilog'}
+                    myPlot = @semilog;
+                case {'loglog'}
+                    myPlot = @loglog;
+            end
     end
 end
 
@@ -141,16 +171,34 @@ legy = h + axy + titleh + M(2);
 figure1 = figure('Position', [1 1 W H]);
 % Create axes
 
+
 ax = cell(1,4);
 for i = 1:4
     ax{i} = axes('Parent',figure1,...
         'Position',[ax_xpos(i) axy w h], 'FontSize', axesFont);
     hold(ax{i},'on');
     % subplot(2,2,1)
-    if iscell(X)
-        plot(X{i},Ys{i},'Parent',ax{i});
-    else
-        plot(X,Ys{i},'Parent',ax{i});
+    K = size(Ys{i},2);
+    for k = 1:K
+        lspec = cell(1,length(PROP_P));
+        for j = 1:2:length(PROP_P)
+            lspec{j} = PROP_P{j};
+            if length(PROP_P{j + 1}) == 1
+                lspec{j + 1} = PROP_P{j + 1};
+            else
+                try
+                    lspec{j + 1} = PROP_P{j + 1}{k};
+                catch
+                    lspec{j + 1} = PROP_P{j+1}(k);
+                end
+            end
+        end
+        
+        if iscell(X)
+            myPlot(X{i},Ys{i}(:,k),'Parent',ax{i}, lspec{:});
+        else
+            myPlot(X,Ys{i}(:,k),'Parent',ax{i}, lspec{:});
+        end
     end
     if exist('ylabel_','var') ~= 0
         if i == 1
@@ -206,13 +254,20 @@ end
 
 % set legend
 if exist('legend_', 'var') ~= 0
-    lh = legend(ax{1}, legend_, 'Orientation','horizontal');
+    if iscell(legend_{1})
+        lh = legend(ax{1}, legend_{1}, 'Orientation','horizontal');
+    else
+        lh = legend(ax{1}, legend_, 'Orientation','horizontal');
+    end
     lp = get(lh, 'Position');
     legx = (1 - lp(3)) / 2;
     set(lh, 'box', 'off', 'Position', [legx legy lp(3:4)], 'FontSize', legendFont);
-    if exist('PROP_L','var') ~= 0
-        for k = 1:2:length(PROP_L)
-            set(lh, PROP_L{k}, PROP_L{k + 1});
+    if iscell(legend_{1})
+        try
+            for k = 2:2:length(legend_)
+                set(lh, legend_{k}, legend_{k + 1});
+            end
+        catch
         end
     end
 end
